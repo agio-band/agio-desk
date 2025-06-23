@@ -1,0 +1,31 @@
+name: agio_desktop
+version: 0.0.1
+label: agio Desktop App
+description: |
+  Desktop application for agio
+icon: 'core/agio-logo.png'
+
+urls:
+  home_page: ""
+  documentation: ""
+  bug_tracker: ""
+
+dependencies: ["psutil", "PySide6"]
+agio_dependencies: ["agio_core"]
+
+repository_api: gitea
+
+plugins:
+  # commands
+  - label: Run Command
+    implementations:
+      - module: plugins/commands/run_command.py
+
+settings:
+#  workspace:
+#    layout: package_settings/local_layout.yml
+#   model: none
+  local:
+    model: package_settings.local_settings.DesktopSettings
+    layout: package_settings/local_layout.yml
+

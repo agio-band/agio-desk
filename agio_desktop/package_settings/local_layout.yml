@@ -1,0 +1,8 @@
+sections:
+  desktop_app:
+    label: Desktop App
+    content:
+      - type: GroupBox
+        label: Task Queue
+        content:
+          - worker_count
