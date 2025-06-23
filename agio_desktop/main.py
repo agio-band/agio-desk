@@ -1,9 +1,10 @@
 import os
+from agio_desktop.tools.process_hub import ProcessHub
 
 
 class DesktopMainProcess:
     def __init__(self):
-        self.process_hub = None
+        self.process_hub = ProcessHub()
 
 
 
