@@ -19,7 +19,7 @@ plugins:
   # commands
   - label: Run Command
     implementations:
-      - module: plugins/commands/run_command.py
+      - module: plugins/commands/desktop_cmd.py
 
 settings:
 #  workspace:
