@@ -2,7 +2,7 @@ from agio.core.plugins.service_hub import AServiceHub
 from agio.core.plugins.base.command_base import ACommandPlugin
 import click
 
-from agio_desk.apps.main_app import start_desktop_app
+from agio_desk.apps.main import start_desktop_app
 
 
 class DeskCommand(ACommandPlugin):
