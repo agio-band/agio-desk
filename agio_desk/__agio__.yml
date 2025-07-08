@@ -1,8 +1,8 @@
-name: agio_desktop
+name: agio_desk
 version: 0.0.1
-label: agio Desktop App
+label: agio DeskApp
 description: |
-  Desktop application for agio
+  Client application for agio platform
 icon: 'core/agio-logo.png'
 
 urls:
@@ -17,9 +17,10 @@ repository_api: gitea
 
 plugins:
   # commands
-  - label: Run Command
+  - label: Start Main App
     implementations:
-      - module: plugins/commands/desktop_cmd.py
+      - module: plugins/commands/desk_cmd.py
+
 
 settings:
 #  workspace:

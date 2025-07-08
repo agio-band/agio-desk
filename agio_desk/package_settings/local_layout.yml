@@ -1,6 +1,6 @@
 sections:
   desktop_app:
-    label: Desktop App
+    label: Desk App
     content:
       - type: GroupBox
         label: Task Queue
