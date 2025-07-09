@@ -2,28 +2,29 @@ from PySide6.QtGui import QCursor, QAction
 from PySide6.QtWidgets import QMenu
 
 from agio.core.utils import get_actions
-from agio.core.utils.action_items import make_callback, ActionGroupItem, ActionItem
+from agio.core.utils.action_items import ActionGroupItem, ActionItem
 
 
 class MainMenu(QMenu):
-
     def __init__(self, *args, **kwargs):
         super(MainMenu, self).__init__(*args, **kwargs)
         self.items_group = get_actions('tray.main_menu', 'desk')
 
     def generate_menu(self, level: ActionGroupItem, parent_menu=None):
         parent_menu = parent_menu or self
-        for item in level.sorted_items():
-            if isinstance(item, ActionItem):
-                action = QAction(item.label,
+        for action in level.sorted_items():
+            if isinstance(action, ActionItem):
+                if not action.is_visible:
+                    continue
+                qt_action = QAction(action.label,
                                  parent=parent_menu,
-                                 triggered=make_callback(item),
-                                 objectName=item.name
+                                 triggered=action,
+                                 objectName=action.name
                                  )
-                self.addAction(action)
-            elif isinstance(item, ActionGroupItem):
-                submenu = QMenu(item.label, parent=parent_menu)
-                self.generate_menu(item, parent_menu)
+                self.addAction(qt_action)
+            elif isinstance(action, ActionGroupItem):
+                submenu = QMenu(action.label, parent=parent_menu)
+                self.generate_menu(action, parent_menu)
                 self.addMenu(submenu)
 
     def open(self):
