@@ -17,7 +17,7 @@ def start_desktop_app(*args, **kwargs):
         logger.debug("Starting in headless mode")
     qapp = QApplication(sys.argv)
     qapp.setQuitOnLastWindowClosed(False)
-    qapp.setApplicationName('agio Desktop') # TODO: Rename
+    qapp.setApplicationName('agio Desk')
 
     # break qt event loop every N time to catch python core events
     timer = QTimer()

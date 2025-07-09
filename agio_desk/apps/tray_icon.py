@@ -1,11 +1,15 @@
+import logging
 import sys
 
 from PySide6.QtWidgets import QSystemTrayIcon, QApplication, QMessageBox
-from PySide6.QtCore import Qt, QObject, QTimer
+from PySide6.QtCore import Qt, QObject, QTimer, Signal
 from PySide6.QtGui import QIcon
 
+from agio.core import subscribe
 from agio.core.packages.resources import get_res
 from .tray_menu import MainMenu
+
+logger = logging.getLogger(__name__)
 
 
 class TrayIconApp(QObject): # TODO Rename this
@@ -15,11 +19,17 @@ class TrayIconApp(QObject): # TODO Rename this
     tray_message_title = 'agio Launcher'
     on_startup_message = 'agio Launcher started'
     icon_path = get_res('agio.png')
+    showMessageSignal = Signal(str, object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tray_icon = None
         self.manu = None
+        self.showMessageSignal.connect(self.show_message)
+
+        @subscribe('desk.tray.show_message')
+        def _show_message_action(event, payload):
+            self.showMessageSignal.emit(payload['text'], payload['title'])
 
     # Methods for launcher control
 
@@ -37,17 +47,11 @@ class TrayIconApp(QObject): # TODO Rename this
             self.tray_icon.hide()
 
     # messages
-
-    def show_message(self, msg, title=None, **kwargs):
-        """
-        Show tray message
-        :param msg: str
-        """
+    def show_message(self, text: str, title: str = None, **kwargs):
+        # todo: add rate limit
         if self.tray_icon:
-            icon = kwargs.get('icon')
-            # ico = self._icons.get(icon) or self._icons.get(self.ICON_NO)
-            self.tray_icon.showMessage(title or self.tray_message_title, msg)  #, icon=ico)
-            # super(LauncherTrayIcon, self).show_message(msg, title)
+            # icon = kwargs.get('icon')
+            self.tray_icon.showMessage(title or self.tray_message_title, text)  #, icon=ico)
 
     # def set_waiting(self, text):
     #     self.tray_icon.setIcon(QIcon(get_icon('tray_wait')))
@@ -79,19 +83,22 @@ class TrayIconApp(QObject): # TODO Rename this
     # todo: add modifiers for mouse events
 
     def on_mouse_left_click(self):
-        print('TRAY ICON CLICK')
+        # print('TRAY ICON CLICK')
+        pass
 
     def on_mouse_double_click(self):
-        print('TRAY ICON DOUBLE CLICK')
+        # print('TRAY ICON DOUBLE CLICK')
+        pass
 
     def on_mouse_right_click(self):
-        print('TRAY ICON RIGHT CLICK')
+        # print('TRAY ICON RIGHT CLICK')
         self.menu.open()
 
     def on_mouse_middle_click(self):
-        print('TRAY ICON MIDDLE CLICK')
+        # print('TRAY ICON MIDDLE CLICK')
+        pass
 
     def shutdown(self, *args):
         if self.tray_icon:
-            print('TRAY ICON SHUTDOWN')
+            logger.debug('Shutting down tray icon')
 

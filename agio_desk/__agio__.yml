@@ -20,7 +20,12 @@ plugins:
   - label: Start Main App
     implementations:
       - module: plugins/commands/desk_cmd.py
-
+  # service
+  - label: Start Main App
+    implementations:
+      - module: plugins/services/desk_service.py
+        apps:
+          - desk
 
 settings:
 #  workspace:
