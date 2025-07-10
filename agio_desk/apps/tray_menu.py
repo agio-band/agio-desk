@@ -2,7 +2,7 @@ from PySide6.QtGui import QCursor, QAction
 from PySide6.QtWidgets import QMenu
 
 from agio.core.utils import get_actions
-from agio.core.utils.action_items import ActionGroupItem, ActionItem
+from agio.core.utils.actions import ActionGroupItem, ActionItem
 
 
 class MainMenu(QMenu):
