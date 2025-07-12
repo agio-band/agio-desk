@@ -32,6 +32,6 @@ settings:
 #    layout: package_settings/local_layout.yml
 #   model: none
   local:
-    model: package_settings.local_settings.DesktopSettings
+    model: package_settings.local_settings.DeskSettings
     layout: package_settings/local_layout.yml
 

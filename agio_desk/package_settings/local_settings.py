@@ -1,5 +1,5 @@
 from agio.core.settings import APackageSettings
 
 
-class DeskAppSettings(APackageSettings):
+class DeskSettings(APackageSettings):
     worker_count: int = 1
