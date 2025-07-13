@@ -1,11 +1,10 @@
 import logging
-import sys
 
-from PySide6.QtWidgets import QSystemTrayIcon, QApplication, QMessageBox
-from PySide6.QtCore import Qt, QObject, QTimer, Signal
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QSystemTrayIcon
 
-from agio.core import subscribe
+from agio.core.events import subscribe
 from agio.core.packages.resources import get_res
 from .tray_menu import MainMenu
 
