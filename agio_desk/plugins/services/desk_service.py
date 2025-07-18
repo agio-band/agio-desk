@@ -1,4 +1,4 @@
-from agio.core import emit
+from agio.core.events import emit
 from agio.core.plugins.base.service_base import ServicePlugin, make_action
 
 
