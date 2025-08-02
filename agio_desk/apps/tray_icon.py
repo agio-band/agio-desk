@@ -5,7 +5,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QSystemTrayIcon
 
 from agio.core.events import subscribe
-from agio.core.packages.resources import get_res
+from agio.core.pkg.resources import get_res
 from .tray_menu import MainMenu
 
 logger = logging.getLogger(__name__)

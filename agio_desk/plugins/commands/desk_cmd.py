@@ -2,8 +2,8 @@ import logging
 
 import click
 
-from agio.core.plugins.base.command_base import AStartAppCommand
-from agio.core.plugins.service_hub import AServiceHub
+from agio.core.plugins.base_command import AStartAppCommand
+from agio.core.utils.service_hub import AServiceHub
 from agio_desk.apps.main import start_desktop_app
 
 logger = logging.getLogger(__name__)
