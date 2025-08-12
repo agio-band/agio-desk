@@ -17,7 +17,7 @@ class TrayIconApp(QObject): # TODO Rename this
     """
     tray_message_title = 'agio Launcher'
     on_startup_message = 'agio Launcher started'
-    icon_path = get_res('agio.png')
+    icon_path = get_res('core/agio-icon.png')
     showMessageSignal = Signal(str, object)
 
     def __init__(self, *args, **kwargs):
