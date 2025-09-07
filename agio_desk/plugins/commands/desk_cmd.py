@@ -2,6 +2,7 @@ import logging
 
 import click
 
+from agio.core.events import emit
 from agio.core.plugins.base_command import AStartAppCommand
 from agio.core.utils.service_hub import AServiceHub
 from agio_desk.apps.main import start_desktop_app
@@ -22,6 +23,7 @@ class DeskCommand(AStartAppCommand):
     }
 
     def execute(self, **kwargs):
+        emit('agio_desk.app.before_launched')
         with AServiceHub(self.services) as sh:
             start_desktop_app(headless=kwargs.get('headless', False))
 
