@@ -28,6 +28,7 @@ class MainMenu(QMenu):
                 self.addMenu(submenu)
 
     def open(self):
+        self.clear()
         self.generate_menu(self.items_group)
         self.exec(QCursor.pos())
         self.clear()
