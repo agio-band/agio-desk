@@ -10,7 +10,9 @@ urls:
   documentation: ""
   bug_tracker: ""
 
-required_packages: []
+agio_package_dependencies: [
+  'agio-core==0.0.1'
+]
 
 
 plugins:
@@ -26,9 +28,6 @@ plugins:
           - desk
 
 settings:
-#  workspace:
-#    layout: package_settings/local_layout.yml
-#   model: none
   local:
     model: package_settings.local_settings.DeskSettings
     layout: package_settings/local_layout.yml
