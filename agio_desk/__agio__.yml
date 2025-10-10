@@ -25,8 +25,8 @@ plugins:
   - label: Start Main App
     implementations:
       - module: plugins/services/desk_service.py
-        apps:
-          - desk
+#        apps:
+#          - desk # TODO
 
 settings:
   local:

@@ -1,4 +1,5 @@
 import logging
+import os
 
 import click
 
@@ -23,6 +24,7 @@ class DeskCommand(AStartAppCommand):
     }
 
     def execute(self, **kwargs):
+        # TODO start a new process with correct app context
         emit('agio_desk.app.before_launched')
         with AServiceHub(self.services) as sh:
             start_desktop_app(headless=kwargs.get('headless', False))
