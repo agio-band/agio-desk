@@ -1,13 +1,17 @@
+import inspect
 import logging
 import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import *
 from PySide6.QtCore import *
+
+from agio.core.events import subscribe, on_exit
 from agio.core.pkg import resources
 
 
 logger = logging.getLogger(__name__)
+
 
 def get_main_parent():
     qapp = QApplication.instance()
@@ -16,9 +20,16 @@ def get_main_parent():
     return QApplication.topLevelWidgets()[0]
 
 
-def center_on_screen(widget):
-    screen = QApplication.primaryScreen()
-    screen_geometry = screen.availableGeometry()
+def center_on_screen(widget, app = None):
+    app = app or QApplication.instance()
+    cursor_pos: QPoint = QCursor.pos()
+    current_screen: QScreen = app.screenAt(cursor_pos)
+    if current_screen is None:
+        current_screen = app.primaryScreen()
+        if current_screen is None:
+            print("Ошибка: Не удалось найти ни один экран.")
+            return
+    screen_geometry = current_screen.availableGeometry()
     widget_geometry = widget.frameGeometry()
     widget_geometry.moveCenter(screen_geometry.center())
     widget.move(widget_geometry.topLeft())
@@ -41,8 +52,15 @@ def message_dialog(title, message, level='info'):
     msg.exec_()
 
 
-def open_simple_dialog(widget_class, *args, **kwargs):
-    qapp = QApplication(sys.argv)
+def open_dialog(widget, on_center: bool = True, *args, **kwargs):
+    """
+    Use this function to open a any dialogs.
+    - apply style
+    - fix core events
+    - apply app name
+    - apply app icon
+    """
+    qapp = kwargs.pop('qapp') or  QApplication.instance() or QApplication(sys.argv)
     qapp.setQuitOnLastWindowClosed(True)
     qapp.setApplicationName(kwargs.pop('app_name', 'agio'))
 
@@ -52,9 +70,14 @@ def open_simple_dialog(widget_class, *args, **kwargs):
     timer.timeout.connect(lambda: None)
 
     try:
-        w = widget_class(*args, **kwargs)
+        if inspect.isclass(widget):
+            w = widget(*args, **kwargs)
+        else:
+            w = widget
+        if on_center:
+            center_on_screen(w, qapp)
         w.show()
         sys.exit(qapp.exec())
     except Exception as e:
-        logging.exception("Application startup error")
+        logging.exception(f"Application startup error: {e}")
 
