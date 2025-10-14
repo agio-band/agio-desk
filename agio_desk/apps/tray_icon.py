@@ -4,7 +4,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QSystemTrayIcon
 
-from agio.core.events import subscribe
+from agio.core.events import subscribe, on_exit
 from agio.core.events.event import AEvent
 from agio.core.pkg.resources import get_res
 from .tray_menu import MainMenu
@@ -26,6 +26,7 @@ class TrayIconApp(QObject): # TODO Rename this
         self.tray_icon = None
         self.manu = None
         self.showMessageSignal.connect(self.show_message)
+        on_exit(self.shutdown)
 
         @subscribe('desk.tray.show_message')
         def _show_message_action(event: AEvent):
