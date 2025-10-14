@@ -5,6 +5,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QSystemTrayIcon
 
 from agio.core.events import subscribe
+from agio.core.events.event import AEvent
 from agio.core.pkg.resources import get_res
 from .tray_menu import MainMenu
 
@@ -27,8 +28,8 @@ class TrayIconApp(QObject): # TODO Rename this
         self.showMessageSignal.connect(self.show_message)
 
         @subscribe('desk.tray.show_message')
-        def _show_message_action(event, payload):
-            self.showMessageSignal.emit(payload['text'], payload['title'])
+        def _show_message_action(event: AEvent):
+            self.showMessageSignal.emit(event.payload['text'], event.payload['title'])
 
     # Methods for launcher control
 
