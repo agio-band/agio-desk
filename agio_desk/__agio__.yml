@@ -1,5 +1,5 @@
 name: agio_desk
-version: 0.0.1
+version: 0.0.2
 label: agio DeskApp
 description: |
   Client application for agio platform
@@ -12,7 +12,7 @@ urls:
   source_url: "https://github.com/agio-band/agio-desk"
 
 agio_package_dependencies: [
-  'agio-core==0.0.1'
+  'agio-core>=0.0.2'
 ]
 
 
