@@ -6,6 +6,7 @@ dependencies = [
     "psutil>=7.0.0",
     "pyside6>=6.9.1",
 ]
+license = "MIT"
 
 [tool.setuptools]
 include-package-data = true
