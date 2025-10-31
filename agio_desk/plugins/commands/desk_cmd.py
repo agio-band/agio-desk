@@ -1,11 +1,10 @@
 import logging
-import os
 
 import click
 
 from agio.core.events import emit
 from agio.core.plugins.base_command import AStartAppCommand
-from agio.core.utils.service_hub import AServiceHub
+from agio.core.plugins.service_hub import AServiceHub
 from agio_desk.apps.main import start_desk_app
 
 logger = logging.getLogger(__name__)
@@ -15,6 +14,7 @@ class DeskCommand(AStartAppCommand):
     name = 'desk_cmd'
     command_name = 'desk'
     app_name = 'desk'
+    help = 'Start agio.desk app'
     arguments = [
         click.option("-d", "--headless", is_flag=True, help='Start in headless mode'),
     ]
