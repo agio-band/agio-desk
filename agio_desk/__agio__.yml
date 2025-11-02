@@ -1,6 +1,5 @@
 name: agio_desk
-version: 0.0.3
-label: agio DeskApp
+label: agio.desk Application
 description: |
   Client application for agio platform
 icon: 'core/agio-logo.png'
@@ -11,8 +10,8 @@ urls:
   bug_tracker: "https://github.com/agio-band/agio-desk/issues"
   source_url: "https://github.com/agio-band/agio-desk"
 
-agio_package_dependencies: [
-  'agio-core>=0.0.2'
+required_packages: [
+  'agio-core>=0.0.4'
 ]
 
 
