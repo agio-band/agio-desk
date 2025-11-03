@@ -16,8 +16,8 @@ class TrayIconApp(QObject): # TODO Rename this
     """
     Launcher Tray Icon Class
     """
-    tray_message_title = 'agio Launcher'
-    on_startup_message = 'agio Launcher started'
+    tray_message_title = 'agio Desk'
+    on_startup_message = 'agio Desk started'
     icon_path = get_res('core/agio-icon.png')
     showMessageSignal = Signal(str, object)
 
@@ -30,7 +30,7 @@ class TrayIconApp(QObject): # TODO Rename this
 
         @subscribe('desk.tray.show_message')
         def _show_message_action(event: AEvent):
-            self.showMessageSignal.emit(event.payload['text'], event.payload['title'])
+            self.showMessageSignal.emit(str(event.payload['text']), event.payload['title'])
 
     # Methods for launcher control
 
