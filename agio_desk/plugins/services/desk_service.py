@@ -15,3 +15,9 @@ class DeskService(ServicePlugin):
         logger.info(f'Show message: {text}')
         # TODO send to desk by localhost
         emit('desk.tray.show_message', {'text': text, 'title': title})
+
+    @make_action(label='Local Settings',
+                 menu_name='tray.main_menu',
+                 app_name='desk')
+    def open_settings(self, *args, **kwargs):
+        print('OPEN DIALOG')
