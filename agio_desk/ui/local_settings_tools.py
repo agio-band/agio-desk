@@ -1,19 +1,45 @@
 from agio.core.entities.project import AProject
 from agio.core.entities.company import ACompany
 from agio.core.settings import get_local_settings, save_local_settings
-from agio.tools.setup_logger import disabled_loggers
+from agio.core import api
+
+# query = '''
+# query GetCompaniesWithProjects{
+#   companies (
+#     first: 10000,
+#   ){
+#     edges{
+#       node {
+#         id
+#         name
+#         code
+#         projects{
+#           id
+#           name
+#           code
+#         }
+#
+#       }
+#     }
+#   }
+# }'''
+#
+# def load_data():
+#     data = api.client.make_query_raw(query)
+#     companies = [item['node'] for item in data['data']['companies']['edges']]
+#     for cmp in companies:
+#         cmp['projects'] = [AProject(prj) for prj in cmp['projects']]
+#     return companies
+# load_data()
 
 
-def load_projects():
-    cmp = ACompany.current()
-    for prj in AProject.iter(cmp):
-        yield prj
+def load_companies():
+    return list(ACompany.iter())
 
 
-def load_dialog_data():
-    projects = load_projects()
+def load_projects(company_id):
     dialog_data = []
-    for prj in projects:
+    for prj in AProject.iter(company_id):
         dialog_data.append({
             'project': prj,
             'settings': get_local_settings(prj)

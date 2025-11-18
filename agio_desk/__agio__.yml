@@ -20,6 +20,10 @@ plugins:
   - label: Start Main App
     implementations:
       - module: plugins/commands/desk_cmd.py
+  - label: Settings Dialog
+    implementations:
+      - module: plugins/commands/settings_cmd.py
+
   # service
   - label: Start Main App
     implementations:

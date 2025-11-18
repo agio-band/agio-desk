@@ -1,13 +1,18 @@
+import logging
 import os
 import sys
 from pathlib import Path
 
-from PySide6.QtGui import *
 from PySide6.QtCore import *
+from PySide6.QtGui import *
 from PySide6.QtWidgets import *
-from agio.tools import qt, app_dirs
-from agio_desk.ui.local_settings_tools import load_dialog_data, save_settings
 
+from agio.core.entities.profile import AProfile
+from agio.tools import qt, app_dirs
+from agio_desk.ui.local_settings_tools import load_projects, save_settings, load_companies
+from agio.core.settings import save_local_settings
+
+logger = logging.getLogger(__name__)
 
 class LocalSettingsDialog(QWidget):
     def __init__(self, parent=None):
@@ -17,16 +22,32 @@ class LocalSettingsDialog(QWidget):
         self.splitter = QSplitter(self)
         self.splitter.setOrientation(Qt.Horizontal)
         self.splitter.setHandleWidth(2)
-        self.projects_grp = QGroupBox('Projects')
-        projects_ly = QVBoxLayout(self.projects_grp)
-        self.projects_lst = QListWidget(self.projects_grp)
+
+        left_widget = QWidget(self)
+        left_ly = QVBoxLayout(left_widget)
+        left_ly.setContentsMargins(0, 0, 0, 0)
+        company_grp = QGroupBox('Company')
+        company_ly = QVBoxLayout(company_grp)
+        self.company_cbb = QComboBox()
+        self.company_cbb.currentIndexChanged.connect(self.on_company_changed)
+        self.show_home_button = QCheckBox('Show All Home')
+        self.show_home_button.clicked.connect(self.update_company_list)
+        company_ly.addWidget(self.company_cbb)
+        company_ly.addWidget(self.show_home_button)
+        left_ly.addWidget(company_grp)
+
+        projects_grp = QGroupBox('Projects')
+        projects_ly = QVBoxLayout(projects_grp)
+        self.projects_lst = QListWidget(projects_grp)
         self.projects_lst.currentItemChanged.connect(self.on_project_selected)
         projects_ly.addWidget(self.projects_lst)
-        self.splitter.addWidget(self.projects_grp)
+        left_ly.addWidget(projects_grp)
+
+        self.splitter.addWidget(left_widget)
 
         self.settings_grp = QGroupBox('Local Roots')
         self.settings_ly = QVBoxLayout(self.settings_grp)
-        self.mount_point_lb = QLabel('Projects Mount Point')
+        self.mount_point_lb = QLabel('Projects Mount Point*')
         self.settings_ly.addWidget(self.mount_point_lb)
 
         self.mount_point_ly = QHBoxLayout()
@@ -39,7 +60,7 @@ class LocalSettingsDialog(QWidget):
         self.mount_point_ly.addWidget(self.projects_root_browse_btn)
         self.settings_ly.addLayout(self.mount_point_ly)
 
-        self.temp_dir_lb = QLabel(self.settings_grp)
+        self.temp_dir_lb = QLabel('Temp Dir')
         self.settings_ly.addWidget(self.temp_dir_lb)
 
         self.temp_dir_ly = QHBoxLayout()
@@ -64,24 +85,40 @@ class LocalSettingsDialog(QWidget):
         self.bottom_buttons_ly.addWidget(self.loading_lb)
         self.bottom_buttons_ly.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
 
-        self.save_btn = QPushButton('Save', clicked=self.on_save_clicked)
+        self.reload_btn = QPushButton('Reload', clicked=self.reload_ui)
+        self.save_btn = QPushButton('Save Company Roots', clicked=self.on_save_clicked)
+        self.bottom_buttons_ly.addWidget(self.reload_btn)
         self.bottom_buttons_ly.addWidget(self.save_btn)
         self.main_ly.addLayout(self.bottom_buttons_ly)
         self.main_ly.setStretch(0, 1)
 
         self.splitter.setSizes([300, 600])
 
-        self.resize(900, 300)
+        self.resize(900, 500)
 
-        self.data = {}
+        self._data = {}
+        self._current_user = None
+        self._companies = []
         self._current_project = None
+        self.thread = None
         self.reload_ui()
 
     def reload_ui(self):
+        if self.thread and self.thread.isRunning():
+            return
+        self.clear_ui()
         self.setEnabled(False)
+        self.projects_root_le.setEnabled(False)
+        self.temp_root_le.setEnabled(False)
+        try:
+            user = AProfile.current()
+            self._current_user = user
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', str(e))
+            return
         self.loading_lb.show()
         self.thread = QThread()
-        self.worker = Worker(load_dialog_data,)
+        self.worker = Worker(load_companies)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.thread.quit)
@@ -90,8 +127,17 @@ class LocalSettingsDialog(QWidget):
         self.worker.error.connect(self.on_load_error)
         self.worker.error.connect(self.thread.quit)
         self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.finished.connect(self._on_thread_stopped)
         self.thread.start()
+
+    def clear_ui(self):
+        self.company_cbb.clear()
+        self.projects_lst.clear()
+        self.projects_root_le.clear()
+        self.temp_root_le.clear()
+
+    def _on_thread_stopped(self):
+        self.thread = None
 
     def on_load_error(self, text):
         msg = QMessageBox(self)
@@ -106,39 +152,93 @@ class LocalSettingsDialog(QWidget):
             app.quit()
 
     def on_loaded(self, data):
-        self.data = {item['project'].id: item for item in data}
+        self._companies = data
+        self.company_cbb.blockSignals(True)
+        try:
+            self.update_company_list()
+        except Exception as e:
+            logger.exception('Company list update failed')
+            QMessageBox.critical(self, 'Error', str(e))
+        finally:
+            # set prev index
+            self.company_cbb.blockSignals(False)
+        self.on_company_changed()
+
+    def update_company_list(self):
+        self.company_cbb.clear()
+        show_other_users = self.show_home_button.isChecked()
+
+        def sort_companies(comp):
+            return bool(comp.get('hostUser')), (comp.get('hostUser') or {}).get('name')
+
+        for i, cmp in enumerate(sorted(self._companies, key=sort_companies )):
+            if cmp.get('hostUser'):
+                if not show_other_users and cmp['hostUser']['id'] != self._current_user.id:
+                    continue
+                label = f'Home ({cmp["hostUser"]["name"]})'
+            else:
+                label = cmp['name']
+            self.company_cbb.addItem(label, cmp)
+        self.setEnabled(True)
+        self.loading_lb.hide()
+
+    def on_company_changed(self):
         self.projects_lst.clear()
-        for item in data:
+        company = self.company_cbb.currentData(Qt.UserRole)
+        if not company:
+            return
+        self._data = {item['project'].id: item for item in load_projects(company['id'])}
+        if not self._data:
+            logger.warning(f'No projects for selected company')
+            return
+        for item in self._data.values():
             list_item = QListWidgetItem(item['project'].name)
             list_item.setData(Qt.UserRole, item['project'].id)
             self.projects_lst.addItem(list_item)
-        self.setEnabled(True)
-        self.loading_lb.hide()
 
     def get_default_mount_point(self):
         return ''
 
     def get_default_temp_dir(self):
-        return app_dirs.temp_dir().as_posix()
+        return ''   # app_dirs.temp_dir().as_posix()
 
     def on_path_value_changed(self):
         if self._current_project:
-            mount_point_path = Path(self.projects_root_le.text()).expanduser().as_posix()
-            tamp_path = Path(self.temp_root_le.text()).expanduser().as_posix()
+            prj_raw = self.projects_root_le.text()
+            if prj_raw.strip():
+                mount_point_path = Path(prj_raw).expanduser().as_posix()
+            else:
+                mount_point_path = ''
+            tmp_raw = self.temp_root_le.text()
+            if tmp_raw.strip():
+                temp_path = Path(tmp_raw.strip()).expanduser().as_posix()
+            else:
+                temp_path = ''
             parameter = [
                     {'name': 'projects', 'path': mount_point_path},
-                    {'name': 'temp', 'path': tamp_path},
+                    {'name': 'temp', 'path': temp_path},
                 ]
-            self.data[self._current_project]['settings'].set('agio_pipe.local_roots', parameter)
+            self._data[self._current_project]['settings'].set('agio_pipe.local_roots', parameter)
+        else:
+            print('No current project')
 
     def on_project_selected(self, item):
+        if not item:
+            self.projects_root_le.setEnabled(False)
+            self.temp_root_le.setEnabled(False)
+            self.projects_root_le.clear()
+            self.temp_root_le.clear()
+            self._current_project = None
+            return
         project_id = item.data(Qt.UserRole)
         self._current_project = project_id
-        settings = self.data.get(project_id)['settings']
-        roots_list = settings.get('agio_pipe.local_roots')
-        roots = {r.name: r.path for r in roots_list}
-        self.projects_root_le.setText(roots.get('projects', self.get_default_mount_point()))
-        self.temp_root_le.setText(roots.get('temp', self.get_default_temp_dir()))
+        root_settings = self._data.get(project_id)['settings'].get('agio_pipe.local_roots', None)
+        if root_settings:
+            roots = {r.name: r.path for r in root_settings}
+            self.projects_root_le.setText(roots.get('projects', self.get_default_mount_point()))
+            self.temp_root_le.setText(roots.get('temp', self.get_default_temp_dir()))
+        self.projects_root_le.setEnabled(True)
+        self.temp_root_le.setEnabled(True)
 
     def on_save_clicked(self):
         try:
@@ -148,15 +248,27 @@ class LocalSettingsDialog(QWidget):
             QMessageBox.critical(self, 'Error', str(e))
             return
         try:
-            save_settings(self.data)
+            self.save_not_empty()
             QMessageBox.information(self, 'Success', 'Settings saved.')
         except Exception as e:
             QMessageBox.critical(self, 'Error', str(e))
 
+    def save_not_empty(self):
+        for project_id, item in self._data.items():
+            roots = [r.path for r in item['settings'].get('agio_pipe.local_roots')]
+            if any(roots):
+                save_local_settings(item['settings'], item['project'])
+
+
     def check_paths(self):
-        for item in self.data.values():
+        for item in self._data.values():
             roots = item['settings'].get('agio_pipe.local_roots')
+            if not roots:
+                continue
+                # raise ValueError('Roots for project "{}" not defined'.format(item["project"].name))
             for root in roots:
+                if not root.path and root.name == 'projects':
+                    raise ValueError(f'Path "{root.name}" must be defined , project: {item["project"].name}')
                 path = Path(root.path)
                 if not path.exists():
                     try:

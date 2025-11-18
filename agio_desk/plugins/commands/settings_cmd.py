@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class LocalSettingsCommand(AStartAppCommand):
     name = 'local_settings_cmd'
-    command_name = 'local-settings'
+    command_name = 'settings-ui'
     app_name = 'local_settings'
 
     def execute(self, **kwargs):
