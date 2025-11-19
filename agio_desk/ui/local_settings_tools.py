@@ -1,6 +1,8 @@
+import json
+
 from agio.core.entities.project import AProject
 from agio.core.entities.company import ACompany
-from agio.core.settings import get_local_settings, save_local_settings
+from agio.core import settings as local_settings
 from agio.core import api
 
 # query = '''
@@ -42,7 +44,7 @@ def load_projects(company_id):
     for prj in AProject.iter(company_id):
         dialog_data.append({
             'project': prj,
-            'settings': get_local_settings(prj)
+            'settings': get_project_settings(prj)
             }
         )
     return dialog_data
@@ -57,5 +59,20 @@ def save_settings(data):
 
     """
     for item in data.values():
-        save_local_settings(item['settings'], item['project'])
+        local_settings.save_local_settings(item['settings'], item['project'])
 
+
+def get_project_settings(project_id):
+    """
+    Temporary function for any project settings
+    TODO: move roots to core package
+    """
+    settings_file = local_settings.get_project_settings_file(project_id)
+    if settings_file.exists():
+        with open(settings_file, 'r') as f:
+            return json.load(f)
+    return {
+        'agio_pipe.local_roots': {
+            "value": []
+        }
+    }

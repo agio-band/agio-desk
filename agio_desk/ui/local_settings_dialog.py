@@ -9,7 +9,7 @@ from PySide6.QtWidgets import *
 
 from agio.core.entities.profile import AProfile
 from agio.tools import qt, app_dirs
-from agio_desk.ui.local_settings_tools import load_projects, save_settings, load_companies
+from agio_desk.ui import local_settings_tools
 from agio.core.settings import save_local_settings
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class LocalSettingsDialog(QWidget):
         left_ly.setContentsMargins(0, 0, 0, 0)
         company_grp = QGroupBox('Company')
         company_ly = QVBoxLayout(company_grp)
-        self.company_cbb = QComboBox()
+        self.company_cbb = CompanyList(self)
         self.company_cbb.currentIndexChanged.connect(self.on_company_changed)
         self.show_home_button = QCheckBox('Show All Home')
         self.show_home_button.clicked.connect(self.update_company_list)
@@ -68,9 +68,12 @@ class LocalSettingsDialog(QWidget):
         self.temp_root_le.textChanged.connect(self.on_path_value_changed)
         self.temp_dir_ly.addWidget(self.temp_root_le)
 
+        self.temp_root_default_btn = QPushButton('Default')
+        self.temp_dir_ly.addWidget(self.temp_root_default_btn)
         self.temp_root_browse_btn = QPushButton('...')
         self.temp_root_browse_btn.setMaximumSize(QSize(30, 30))
         self.temp_dir_ly.addWidget(self.temp_root_browse_btn)
+
         self.settings_ly.addLayout(self.temp_dir_ly)
         self.settings_ly.addItem( QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
@@ -100,6 +103,7 @@ class LocalSettingsDialog(QWidget):
         self._current_user = None
         self._companies = []
         self._current_project = None
+        self._has_unsaved_changed = False
         self.thread = None
         self.reload_ui()
 
@@ -118,7 +122,7 @@ class LocalSettingsDialog(QWidget):
             return
         self.loading_lb.show()
         self.thread = QThread()
-        self.worker = Worker(load_companies)
+        self.worker = Worker(local_settings_tools.load_companies)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.thread.quit)
@@ -165,13 +169,14 @@ class LocalSettingsDialog(QWidget):
         self.on_company_changed()
 
     def update_company_list(self):
+        current_text = self.company_cbb.currentText()
         self.company_cbb.clear()
         show_other_users = self.show_home_button.isChecked()
 
         def sort_companies(comp):
-            return bool(comp.get('hostUser')), (comp.get('hostUser') or {}).get('name')
+            return bool(comp.get('hostUser')), (comp.get('hostUser') or {}).get('name'),  comp['name']
 
-        for i, cmp in enumerate(sorted(self._companies, key=sort_companies )):
+        for i, cmp in enumerate(sorted(self._companies, key=sort_companies)):
             if cmp.get('hostUser'):
                 if not show_other_users and cmp['hostUser']['id'] != self._current_user.id:
                     continue
@@ -179,6 +184,7 @@ class LocalSettingsDialog(QWidget):
             else:
                 label = cmp['name']
             self.company_cbb.addItem(label, cmp)
+        self.company_cbb.setCurrentText(current_text)
         self.setEnabled(True)
         self.loading_lb.hide()
 
@@ -187,7 +193,7 @@ class LocalSettingsDialog(QWidget):
         company = self.company_cbb.currentData(Qt.UserRole)
         if not company:
             return
-        self._data = {item['project'].id: item for item in load_projects(company['id'])}
+        self._data = {item['project'].id: item for item in local_settings_tools.load_projects(company['id'])}
         if not self._data:
             logger.warning(f'No projects for selected company')
             return
@@ -204,6 +210,7 @@ class LocalSettingsDialog(QWidget):
 
     def on_path_value_changed(self):
         if self._current_project:
+            self._has_unsaved_changed = True
             prj_raw = self.projects_root_le.text()
             if prj_raw.strip():
                 mount_point_path = Path(prj_raw).expanduser().as_posix()
@@ -218,9 +225,7 @@ class LocalSettingsDialog(QWidget):
                     {'name': 'projects', 'path': mount_point_path},
                     {'name': 'temp', 'path': temp_path},
                 ]
-            self._data[self._current_project]['settings'].set('agio_pipe.local_roots', parameter)
-        else:
-            print('No current project')
+            self._data[self._current_project]['settings']['agio_pipe.local_roots']['value'] = parameter
 
     def on_project_selected(self, item):
         if not item:
@@ -232,11 +237,11 @@ class LocalSettingsDialog(QWidget):
             return
         project_id = item.data(Qt.UserRole)
         self._current_project = project_id
-        root_settings = self._data.get(project_id)['settings'].get('agio_pipe.local_roots', None)
-        if root_settings:
-            roots = {r.name: r.path for r in root_settings}
-            self.projects_root_le.setText(roots.get('projects', self.get_default_mount_point()))
-            self.temp_root_le.setText(roots.get('temp', self.get_default_temp_dir()))
+        root_settings = self._data.get(project_id)['settings'].get('agio_pipe.local_roots', {}).get('value') or []
+        roots = {r['name']: r['path'] for r in root_settings}
+        # if root_settings:
+        self.projects_root_le.setText(roots.get('projects', self.get_default_mount_point()))
+        self.temp_root_le.setText(roots.get('temp', self.get_default_temp_dir()))
         self.projects_root_le.setEnabled(True)
         self.temp_root_le.setEnabled(True)
 
@@ -248,28 +253,35 @@ class LocalSettingsDialog(QWidget):
             QMessageBox.critical(self, 'Error', str(e))
             return
         try:
-            self.save_not_empty()
-            QMessageBox.information(self, 'Success', 'Settings saved.')
+            count = self.save_not_empty()
+            self._has_unsaved_changed = False
+            if count:
+                QMessageBox.information(self, 'Success', 'Settings saved.')
+            else:
+                QMessageBox.information(self, 'Oops', 'Nothing to save.')
         except Exception as e:
             QMessageBox.critical(self, 'Error', str(e))
 
     def save_not_empty(self):
+        saved = 0
         for project_id, item in self._data.items():
-            roots = [r.path for r in item['settings'].get('agio_pipe.local_roots')]
+            roots = [r['path'] for r in item['settings'].get('agio_pipe.local_roots', {}).get('value')]
             if any(roots):
                 save_local_settings(item['settings'], item['project'])
+                saved += 1
+        return saved
 
 
     def check_paths(self):
         for item in self._data.values():
-            roots = item['settings'].get('agio_pipe.local_roots')
+            roots = item['settings'].get('agio_pipe.local_roots', {}).get('value')
             if not roots:
                 continue
                 # raise ValueError('Roots for project "{}" not defined'.format(item["project"].name))
             for root in roots:
-                if not root.path and root.name == 'projects':
-                    raise ValueError(f'Path "{root.name}" must be defined , project: {item["project"].name}')
-                path = Path(root.path)
+                if not root['path'] and root.name == 'projects':
+                    raise ValueError(f'Path "{root["name"]}" must be defined , project: {item["project"].name}')
+                path = Path(root['path'])
                 if not path.exists():
                     try:
                         path.mkdir(parents=True, exist_ok=True)
@@ -277,6 +289,21 @@ class LocalSettingsDialog(QWidget):
                         raise PermissionError(f'{e}, project: {item["project"].name}')
                     if not os.access(path.as_posix(), os.W_OK | os.X_OK):
                         raise OSError(f'Permission denied for {path}, project: {item["project"].name}')
+
+
+class CompanyList(QComboBox):
+    def __init__(self, parent: LocalSettingsDialog = None):
+        super().__init__(parent=parent)
+        self.p = parent
+
+    def has_unsaved_changed(self):
+        return self.p._has_unsaved_changed
+
+    def mousePressEvent(self, e, /):
+        if self.has_unsaved_changed():
+            if QMessageBox.question(self, 'Unsaved changes', 'Current company settings not saved. Continue?') != QMessageBox.Yes:
+                return
+        super().mousePressEvent(e)
 
 
 class Worker(QObject):
