@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import traceback
 from pathlib import Path
 
 from PySide6.QtCore import *
@@ -55,7 +56,7 @@ class LocalSettingsDialog(QWidget):
         self.projects_root_le.textChanged.connect(self.on_path_value_changed)
         self.mount_point_ly.addWidget(self.projects_root_le)
 
-        self.projects_root_browse_btn = QPushButton('...')
+        self.projects_root_browse_btn = QPushButton('...', clicked=lambda: self.browse_path(self.projects_root_le))
         self.projects_root_browse_btn.setMaximumSize(QSize(30, 30))
         self.mount_point_ly.addWidget(self.projects_root_browse_btn)
         self.settings_ly.addLayout(self.mount_point_ly)
@@ -68,9 +69,7 @@ class LocalSettingsDialog(QWidget):
         self.temp_root_le.textChanged.connect(self.on_path_value_changed)
         self.temp_dir_ly.addWidget(self.temp_root_le)
 
-        self.temp_root_default_btn = QPushButton('Default')
-        self.temp_dir_ly.addWidget(self.temp_root_default_btn)
-        self.temp_root_browse_btn = QPushButton('...')
+        self.temp_root_browse_btn = QPushButton('...', clicked=lambda: self.browse_path(self.temp_root_le))
         self.temp_root_browse_btn.setMaximumSize(QSize(30, 30))
         self.temp_dir_ly.addWidget(self.temp_root_browse_btn)
 
@@ -83,9 +82,15 @@ class LocalSettingsDialog(QWidget):
         self.bottom_buttons_ly = QHBoxLayout()
         self.help_btn = QPushButton('Help')
         self.bottom_buttons_ly.addWidget(self.help_btn)
+        self.help_btn.hide() # TODO add help link
         self.bottom_buttons_ly.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         self.loading_lb = QLabel('Loading...')
         self.bottom_buttons_ly.addWidget(self.loading_lb)
+
+        self.not_saved = QLabel('[Not saved]')
+        self.bottom_buttons_ly.addWidget(self.not_saved)
+        self.not_saved.hide()
+
         self.bottom_buttons_ly.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
 
         self.reload_btn = QPushButton('Reload', clicked=self.reload_ui)
@@ -184,12 +189,22 @@ class LocalSettingsDialog(QWidget):
             else:
                 label = cmp['name']
             self.company_cbb.addItem(label, cmp)
+
         self.company_cbb.setCurrentText(current_text)
         self.setEnabled(True)
         self.loading_lb.hide()
 
     def on_company_changed(self):
+
+        self.projects_root_le.blockSignals(False)
+        self.temp_root_le.blockSignals(False)
+        self.projects_root_le.clear()
+        self.temp_root_le.clear()
         self.projects_lst.clear()
+        self.projects_root_le.blockSignals(False)
+        self.temp_root_le.blockSignals(False)
+        self.unsaved = False
+
         company = self.company_cbb.currentData(Qt.UserRole)
         if not company:
             return
@@ -208,58 +223,85 @@ class LocalSettingsDialog(QWidget):
     def get_default_temp_dir(self):
         return ''   # app_dirs.temp_dir().as_posix()
 
-    def on_path_value_changed(self):
-        if self._current_project:
-            self._has_unsaved_changed = True
-            prj_raw = self.projects_root_le.text()
-            if prj_raw.strip():
-                mount_point_path = Path(prj_raw).expanduser().as_posix()
-            else:
-                mount_point_path = ''
-            tmp_raw = self.temp_root_le.text()
-            if tmp_raw.strip():
-                temp_path = Path(tmp_raw.strip()).expanduser().as_posix()
-            else:
-                temp_path = ''
-            parameter = [
-                    {'name': 'projects', 'path': mount_point_path},
-                    {'name': 'temp', 'path': temp_path},
-                ]
-            self._data[self._current_project]['settings']['agio_pipe.local_roots']['value'] = parameter
+    @property
+    def unsaved(self):
+        return self._has_unsaved_changed
+
+    @unsaved.setter
+    def unsaved(self, value):
+        self._has_unsaved_changed = value
+        self.not_saved.setVisible(value)
 
     def on_project_selected(self, item):
+
         if not item:
+            self.projects_root_le.blockSignals(True)
+            self.temp_root_le.blockSignals(True)
             self.projects_root_le.setEnabled(False)
             self.temp_root_le.setEnabled(False)
             self.projects_root_le.clear()
             self.temp_root_le.clear()
+            self.projects_root_le.blockSignals(False)
+            self.temp_root_le.blockSignals(False)
             self._current_project = None
             return
         project_id = item.data(Qt.UserRole)
         self._current_project = project_id
         root_settings = self._data.get(project_id)['settings'].get('agio_pipe.local_roots', {}).get('value') or []
         roots = {r['name']: r['path'] for r in root_settings}
-        # if root_settings:
-        self.projects_root_le.setText(roots.get('projects', self.get_default_mount_point()))
-        self.temp_root_le.setText(roots.get('temp', self.get_default_temp_dir()))
+
+        self.projects_root_le.blockSignals(True)
+        self.temp_root_le.blockSignals(True)
+        try:
+            if roots:
+                self.projects_root_le.setText(roots.get('projects', self.get_default_mount_point()))
+                self.temp_root_le.setText(roots.get('temp', self.get_default_temp_dir()))
+            else:
+                self.projects_root_le.setText(self.get_default_mount_point())
+                self.temp_root_le.setText(self.get_default_temp_dir())
+        finally:
+            self.projects_root_le.blockSignals(False)
+            self.temp_root_le.blockSignals(False)
         self.projects_root_le.setEnabled(True)
         self.temp_root_le.setEnabled(True)
+
+    def on_path_value_changed(self):
+        if self._current_project:
+            prj_raw = self.projects_root_le.text().strip()
+            if prj_raw:
+                mount_point_path = Path(prj_raw).expanduser().as_posix()
+            else:
+                mount_point_path = ''
+
+            tmp_raw = self.temp_root_le.text().strip()
+            if tmp_raw:
+                temp_path = Path(tmp_raw.strip()).expanduser().as_posix()
+            else:
+                temp_path = ''
+
+            parameter = [
+                    {'name': 'projects', 'path': mount_point_path},
+                    {'name': 'temp', 'path': temp_path},
+                ]
+            self._data[self._current_project]['settings']['agio_pipe.local_roots']['value'] = parameter
+            self.unsaved = True
 
     def on_save_clicked(self):
         try:
             self.check_paths()
         except Exception as e:
-            print(repr(e))
+            logger.exception('Failed to check settings')
             QMessageBox.critical(self, 'Error', str(e))
             return
         try:
             count = self.save_not_empty()
-            self._has_unsaved_changed = False
+            self.unsaved = False
             if count:
                 QMessageBox.information(self, 'Success', 'Settings saved.')
             else:
                 QMessageBox.information(self, 'Oops', 'Nothing to save.')
         except Exception as e:
+            logger.exception('Failed to save settings')
             QMessageBox.critical(self, 'Error', str(e))
 
     def save_not_empty(self):
@@ -271,7 +313,6 @@ class LocalSettingsDialog(QWidget):
                 saved += 1
         return saved
 
-
     def check_paths(self):
         for item in self._data.values():
             roots = item['settings'].get('agio_pipe.local_roots', {}).get('value')
@@ -279,7 +320,7 @@ class LocalSettingsDialog(QWidget):
                 continue
                 # raise ValueError('Roots for project "{}" not defined'.format(item["project"].name))
             for root in roots:
-                if not root['path'] and root.name == 'projects':
+                if not root['path'] and root['name'] == 'projects':
                     raise ValueError(f'Path "{root["name"]}" must be defined , project: {item["project"].name}')
                 path = Path(root['path'])
                 if not path.exists():
@@ -290,6 +331,11 @@ class LocalSettingsDialog(QWidget):
                     if not os.access(path.as_posix(), os.W_OK | os.X_OK):
                         raise OSError(f'Permission denied for {path}, project: {item["project"].name}')
 
+    def browse_path(self, widget):
+        path  = QFileDialog.getExistingDirectory(self, 'Select Folder')
+        if path:
+            widget.setText(path)
+
 
 class CompanyList(QComboBox):
     def __init__(self, parent: LocalSettingsDialog = None):
@@ -297,7 +343,7 @@ class CompanyList(QComboBox):
         self.p = parent
 
     def has_unsaved_changed(self):
-        return self.p._has_unsaved_changed
+        return self.p.unsaved
 
     def mousePressEvent(self, e, /):
         if self.has_unsaved_changed():
@@ -321,6 +367,7 @@ class Worker(QObject):
             result = self._target_function(*self._args, **self._kwargs)
             self.finished.emit(result)
         except Exception as e:
+            logger.exception('Failed to execute bg task')
             self.error.emit(str(e))
 
 
