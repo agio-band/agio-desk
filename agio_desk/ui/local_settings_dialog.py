@@ -158,7 +158,7 @@ class LocalSettingsDialog(QWidget):
         if pressed_button == btn_retry:
             self.reload_ui()
         elif pressed_button == btn_exit:
-            app.quit()
+            self.close()
 
     def on_loaded(self, data):
         self._companies = data
