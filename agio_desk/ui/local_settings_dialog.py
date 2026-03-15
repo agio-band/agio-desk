@@ -1,7 +1,6 @@
 import logging
 import os
 import sys
-import traceback
 from pathlib import Path
 
 from PySide6.QtCore import *
@@ -9,9 +8,9 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 
 from agio.core.entities.profile import AProfile
-from agio.tools import qt, app_dirs
-from agio_desk.ui import local_settings_tools
 from agio.core.settings import save_local_settings
+from agio.tools import qt
+from agio_desk.ui import local_settings_tools
 
 logger = logging.getLogger(__name__)
 
