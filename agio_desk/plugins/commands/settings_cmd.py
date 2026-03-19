@@ -1,7 +1,7 @@
 import logging
 
 from agio.core.plugins.base_command import AStartAppCommand
-from agio.tools.qt import main_app, center_on_screen
+from agio.tools.qt import main_app, center_on_screen, open_widget
 from agio_desk.ui import local_settings_dialog
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,8 @@ class LocalSettingsCommand(AStartAppCommand):
     def execute(self, **kwargs):
         with main_app() as app:
             dialog = local_settings_dialog.LocalSettingsDialog()
-            center_on_screen(dialog, app)
-            dialog.show()
+            open_widget(dialog, qapp=app)
+            # center_on_screen(dialog, app)
+            # dialog.show()
 
 
