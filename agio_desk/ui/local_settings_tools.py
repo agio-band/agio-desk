@@ -34,6 +34,7 @@ from agio.core import api
 #     return companies
 # load_data()
 
+LOCAL_ROOTS_KEY = 'agio_pipe.local_roots'
 
 def load_companies():
     return list(ACompany.iter())
@@ -72,7 +73,7 @@ def get_project_settings(project_id):
         with open(settings_file, 'r') as f:
             return json.load(f)
     return {
-        'agio_pipe.local_roots': {
+        LOCAL_ROOTS_KEY: {
             "value": []
         }
     }

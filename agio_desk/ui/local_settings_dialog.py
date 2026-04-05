@@ -7,10 +7,14 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 
+from agio.core.entities import ACompany
 from agio.core.entities.profile import AProfile
+from agio.core.entities.project import AProject
 from agio.core.settings import save_local_settings
 from agio.tools import qt
+from agio.tools.qt import show_message_dialog
 from agio_desk.ui import local_settings_tools
+from agio_desk.ui.local_settings_tools import LOCAL_ROOTS_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +126,13 @@ class LocalSettingsDialog(QWidget):
             user = AProfile.current()
             self._current_user = user
         except Exception as e:
-            QMessageBox.critical(self, 'Error', str(e))
+            logger.exception('User profile error')
+            show_message_dialog(
+                title='Error',
+                message=str(e),
+                exception=e,
+                parent=self
+            )
             return
         self.loading_lb.show()
         self.thread = QThread()
@@ -166,7 +176,12 @@ class LocalSettingsDialog(QWidget):
             self.update_company_list()
         except Exception as e:
             logger.exception('Company list update failed')
-            QMessageBox.critical(self, 'Error', str(e))
+            show_message_dialog(
+                title='Error',
+                message=str(e),
+                exception=e,
+                parent=self
+            )
         finally:
             # set prev index
             self.company_cbb.blockSignals(False)
@@ -177,16 +192,16 @@ class LocalSettingsDialog(QWidget):
         self.company_cbb.clear()
         show_other_users = self.show_home_button.isChecked()
 
-        def sort_companies(comp):
-            return bool(comp.get('hostUser')), (comp.get('hostUser') or {}).get('name'),  comp['name']
+        def sort_companies(comp: ACompany):
+            return bool(comp.host_user), comp.host_user.get('name'),  comp.name
 
         for i, cmp in enumerate(sorted(self._companies, key=sort_companies)):
-            if cmp.get('hostUser'):
-                if not show_other_users and cmp['hostUser']['id'] != self._current_user.id:
+            if cmp.host_user:
+                if not show_other_users and cmp.host_user.get('id') != self._current_user.id:
                     continue
-                label = f'Home ({cmp["hostUser"]["name"]})'
+                label = f'Home ({cmp.host_user["name"]})'
             else:
-                label = cmp['name']
+                label = cmp.name
             self.company_cbb.addItem(label, cmp)
 
         self.company_cbb.setCurrentText(current_text)
@@ -207,7 +222,8 @@ class LocalSettingsDialog(QWidget):
         company = self.company_cbb.currentData(Qt.UserRole)
         if not company:
             return
-        self._data = {item['project'].id: item for item in local_settings_tools.load_projects(company['id'])}
+        print('Selected company', company.id)
+        self._data = {item['project'].id: item for item in local_settings_tools.load_projects(company.id)}
         if not self._data:
             logger.warning(f'No projects for selected company')
             return
@@ -232,7 +248,6 @@ class LocalSettingsDialog(QWidget):
         self.not_saved.setVisible(value)
 
     def on_project_selected(self, item):
-
         if not item:
             self.projects_root_le.blockSignals(True)
             self.temp_root_le.blockSignals(True)
@@ -245,8 +260,10 @@ class LocalSettingsDialog(QWidget):
             self._current_project = None
             return
         project_id = item.data(Qt.UserRole)
-        self._current_project = project_id
-        root_settings = self._data.get(project_id)['settings'].get('agio_pipe.local_roots', {}).get('value') or []
+        self._current_project = AProject(project_id)
+        root_settings = self._data.get(project_id)['settings'].get(
+            LOCAL_ROOTS_KEY, {}
+        ).get('value') or []
         roots = {r['name']: r['path'] for r in root_settings}
 
         self.projects_root_le.blockSignals(True)
@@ -282,7 +299,7 @@ class LocalSettingsDialog(QWidget):
                     {'name': 'projects', 'path': mount_point_path},
                     {'name': 'temp', 'path': temp_path},
                 ]
-            self._data[self._current_project]['settings']['agio_pipe.local_roots']['value'] = parameter
+            self._data[self._current_project.id]['settings'][LOCAL_ROOTS_KEY]['value'] = parameter
             self.unsaved = True
 
     def on_save_clicked(self):
@@ -306,7 +323,7 @@ class LocalSettingsDialog(QWidget):
     def save_not_empty(self):
         saved = 0
         for project_id, item in self._data.items():
-            roots = [r['path'] for r in item['settings'].get('agio_pipe.local_roots', {}).get('value')]
+            roots = [r['path'] for r in item['settings'].get(LOCAL_ROOTS_KEY, {}).get('value')]
             if any(roots):
                 save_local_settings(item['settings'], item['project'])
                 saved += 1
@@ -314,7 +331,7 @@ class LocalSettingsDialog(QWidget):
 
     def check_paths(self):
         for item in self._data.values():
-            roots = item['settings'].get('agio_pipe.local_roots', {}).get('value')
+            roots = item['settings'].get(LOCAL_ROOTS_KEY, {}).get('value')
             if not roots:
                 continue
                 # raise ValueError('Roots for project "{}" not defined'.format(item["project"].name))
