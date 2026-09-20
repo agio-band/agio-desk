@@ -2,7 +2,8 @@ import logging
 import os
 
 from agio.core.events import emit
-from agio.core.plugins.base_service import ServicePlugin, make_action
+from agio.core.plugins.base_service import ServicePlugin
+from agio.core.actions import make_action
 from agio.tools import launching
 
 logger = logging.getLogger(__name__)
