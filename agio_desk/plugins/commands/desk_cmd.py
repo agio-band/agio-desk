@@ -28,6 +28,7 @@ class DeskCommand(AStartAppCommand):
     def before_start(self, **kwargs):
         super().before_start(**kwargs)
         # os.environ[env_names.APP_NAME] = self.app_name
+        os.environ['QT_QPA_PLATFORM'] = 'xcb'
 
         @subscribe('core.message.error')
         def on_error(event: AEvent):

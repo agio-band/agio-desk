@@ -26,5 +26,6 @@ class DeskService(ServicePlugin):
             workspace=None,
             detached=os.name != 'nt',  # fix for windows
             non_blocking=os.name == 'nt',
-            new_console=False
+            new_console=False,
+            envs={'QT_QPA_PLATFORM': 'xcb'}
         )
