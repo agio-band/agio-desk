@@ -8,7 +8,7 @@ from agio.core.actions.action_item import ActionGroupItem, ActionItem
 class MainMenu(QMenu):
     def __init__(self, *args, **kwargs):
         super(MainMenu, self).__init__(*args, **kwargs)
-        self.items_group = get_actions('tray.main_menu', 'desk')
+        self.items_group = get_actions('tray_menu', 'desk')
 
     def generate_menu(self, level: ActionGroupItem, parent_menu=None):
         parent_menu = parent_menu or self
