@@ -19,7 +19,7 @@ class DeskService(ServicePlugin):
         emit('desk.tray.show_message', {'text': text, 'title': title})
 
     @make_action(label='Local Settings',
-                 menu_name='tray.main_menu',
+                 menu_name='tray_menu',
                  app_name='desk')
     def open_settings(self, *args, **kwargs):
         launching.exec_agio_command(
