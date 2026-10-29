@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QIcon
@@ -18,13 +19,13 @@ class TrayIconApp(QObject): # TODO Rename this
     """
     tray_message_title = 'agio Desk'
     on_startup_message = 'agio Desk started'
-    icon_path = get_res('core/agio-icon.png')
+    icon_path = get_res('core/icons/agio-icon.png')
     showMessageSignal = Signal(str, object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tray_icon = None
-        self.manu = None
+        self.menu = None
         self.showMessageSignal.connect(self.show_message)
         on_exit(self.shutdown)
 
@@ -41,6 +42,7 @@ class TrayIconApp(QObject): # TODO Rename this
         self.tray_icon.activated.connect(self.tray_icon_activated)
         # set default icon
         self.menu = MainMenu()
+        self.tray_icon.setContextMenu(self.menu)
         self.tray_icon.show()
 
     def close_ui(self):
@@ -93,7 +95,18 @@ class TrayIconApp(QObject): # TODO Rename this
 
     def on_mouse_right_click(self):
         # print('TRAY ICON RIGHT CLICK')
-        self.menu.open()
+        if self.menu is None:
+            return
+        if self.menu.isVisible():
+            # Windows: setContextMenu() already made Qt pop up the menu
+            # at the tray icon position
+            return
+        if sys.platform == 'darwin':
+            # macOS shows the context menu natively
+            return
+        # Fallback for StatusNotifier hosts without DBusMenu support:
+        # open the menu ourselves as close to the icon as we can
+        self.menu.open_at_icon(self.tray_icon)
 
     def on_mouse_middle_click(self):
         # print('TRAY ICON MIDDLE CLICK')
